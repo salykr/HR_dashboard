@@ -3,10 +3,8 @@ import streamlit as st
 import plotly.express as px
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
-from st_aggrid import AgGrid
-from streamlit_extras.metric_cards import style_metric_cards
-from streamlit_extras.stylable_container import stylable_container
 from collections import Counter
+from streamlit_extras.metric_cards import style_metric_cards
 
 # Set page config
 st.set_page_config(page_title="لوحة استقالات الموظفين", layout="wide")
@@ -18,176 +16,239 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Load data
+# File and sheet name - adjust path as needed
 file_path = "Simple HR Data.xlsx"
 sheet_name = "الدوران + معدل البقاء"
-df = pd.read_excel(file_path, sheet_name=sheet_name)
 
-# Rename columns
-df = df.rename(columns={
-    'الجنس': 'Gender',
-    'القسم': 'Department',
-    'السبب': 'ResignationReason',
-    'الحالة الاجتماعية': 'MaritalStatus',
-    'شريحة العمر': 'AgeGroup',
-    'فترة العمل': 'WorkDuration',
-    'العمر عند الترك': 'AgeAtExit',
+# Rename dict matching your headers
+rename_dict = {
+    'الرقم': 'EmployeeID',
+    'اسم الموظف': 'EmployeeName',
     'المسمى الوظيفي': 'JobTitle',
-    'تاريخ الميلاد': 'BirthDate'
-})
+    'المسمى': 'Position',
+    'القسم': 'Department',
+    'الإدارة': 'Unit',
+    'تاريخ بدء العمل': 'DateOfStart',
+    'تاريخ الترك': 'DateOfLeaving',
+    'الجنس': 'Gender',
+    'تاريخ الميلاد': 'BirthDate',
+    'الحالة الاجتماعية': 'MaritalStatus',
+    'فترة العمل': 'WorkDuration',
+    'الترك قبل 4.4': 'LeaveBefore4_4',
+    'العمر عند الترك': 'AgeAtExit',
+    'شريحة العمر': 'AgeGroup',
+    'الشهر': 'Month',
+    'السبب': 'ResignationReason',
+    'Turn Over': 'Turnover',
+    'معدل المدة': 'TimeAvg',
+    'RN Turn Over': 'RN_Turnover'
+}
 
+# Load and rename
+df = pd.read_excel(file_path, sheet_name=sheet_name)
+df = df.rename(columns=rename_dict)
+
+# Convert dates safely
 df['BirthDate'] = pd.to_datetime(df['BirthDate'], errors='coerce')
-df['BirthMonth'] = df['BirthDate'].dt.month
+df['DateOfStart'] = pd.to_datetime(df['DateOfStart'], errors='coerce')
+df['DateOfLeaving'] = pd.to_datetime(df['DateOfLeaving'], errors='coerce')
 
-# Layout: content left, filters right
+# Extract month info for birth and leaving
+df['BirthMonth'] = df['BirthDate'].dt.month
+df['LeavingMonth'] = df['DateOfLeaving'].apply(lambda x: x.to_period('M').to_timestamp() if pd.notnull(x) else pd.NaT)
+
+# Layout
 content_col, filters_col = st.columns([3, 1])
 
-# --- FILTERS ON THE RIGHT ---
 with filters_col:
     st.markdown("<h4 style='text-align:right;'>🎛️ عوامل التصفية</h4>", unsafe_allow_html=True)
+    
+    gender_filter = st.selectbox("الجنس", options=["الكل"] + sorted(df['Gender'].dropna().unique().tolist()))
+    dept_filter = st.selectbox("القسم", options=["الكل"] + sorted(df['Department'].dropna().unique().tolist()))
+    unit_filter = st.selectbox("الإدارة", options=["الكل"] + sorted(df['Unit'].dropna().unique().tolist()) if 'Unit' in df.columns else ["الكل"])
+    reason_filter = st.multiselect("سبب الاستقالة", options=sorted(df['ResignationReason'].dropna().unique()), default=sorted(df['ResignationReason'].dropna().unique()))
+    age_group_filter = st.multiselect("شريحة العمر", options=sorted(df['AgeGroup'].dropna().unique()), default=sorted(df['AgeGroup'].dropna().unique()))
+    marital_filter = st.multiselect("الحالة الاجتماعية", options=sorted(df['MaritalStatus'].dropna().unique()), default=sorted(df['MaritalStatus'].dropna().unique()))
 
-    st.markdown("<div style='text-align:right;'>الجنس</div>", unsafe_allow_html=True)
-    gender_filter = st.selectbox("", df['Gender'].dropna().unique())
+# Apply filters
+filtered_df = df.copy()
+if gender_filter != "الكل":
+    filtered_df = filtered_df[filtered_df['Gender'] == gender_filter]
+if dept_filter != "الكل":
+    filtered_df = filtered_df[filtered_df['Department'] == dept_filter]
+if 'Unit' in filtered_df.columns and unit_filter != "الكل":
+    filtered_df = filtered_df[filtered_df['Unit'] == unit_filter]
+filtered_df = filtered_df[
+    filtered_df['ResignationReason'].isin(reason_filter) &
+    filtered_df['AgeGroup'].isin(age_group_filter) &
+    filtered_df['MaritalStatus'].isin(marital_filter)
+]
 
-    st.markdown("<div style='text-align:right;'>القسم</div>", unsafe_allow_html=True)
-    dept_filter = st.selectbox("", sorted(df['Department'].dropna().unique()))
-
-    st.markdown("<div style='text-align:right;'>سبب الاستقالة</div>", unsafe_allow_html=True)
-    reason_filter = st.multiselect("", df['ResignationReason'].dropna().unique(), default=df['ResignationReason'].dropna().unique())
-
-    st.markdown("<div style='text-align:right;'>شريحة العمر</div>", unsafe_allow_html=True)
-    age_group_filter = st.multiselect("", df['AgeGroup'].dropna().unique(), default=df['AgeGroup'].dropna().unique())
-
-    st.markdown("<div style='text-align:right;'>الحالة الاجتماعية</div>", unsafe_allow_html=True)
-    marital_filter = st.multiselect("", df['MaritalStatus'].dropna().unique(), default=df['MaritalStatus'].dropna().unique())
-
-# --- CONTENT ON THE LEFT ---
 with content_col:
     st.markdown("<h1 style='text-align:right;'>📊 لوحة تحليل استقالات الموظفين</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:right;'>أداة تساعد إدارة الموارد البشرية على تحليل وفهم اتجاهات ترك الموظفين للعمل.</p>", unsafe_allow_html=True)
 
-    # Apply filters
-    filtered_df = df[
-        (df['Gender'] == gender_filter) &
-        (df['Department'] == dept_filter) &
-        df['ResignationReason'].isin(reason_filter) &
-        df['AgeGroup'].isin(age_group_filter) &
-        df['MaritalStatus'].isin(marital_filter)
-    ]
-
     # KPIs
-    with st.container():
-        st.markdown("<div style='display: flex; justify-content: flex-end; gap: 2rem;'>", unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col2:
-            st.metric("📉 عدد المستقيلين", len(filtered_df))
-        with col1:
-            st.metric("🏢 عدد الأقسام", 1 if dept_filter else 0)
-        st.markdown("</div>", unsafe_allow_html=True)
+    kpi1, kpi2, kpi3 = st.columns(3)
+    with kpi1:
+        st.metric("📉 عدد المستقيلين", len(filtered_df))
+    with kpi2:
+        st.metric("🏢 عدد الأقسام", filtered_df['Department'].nunique())
+    with kpi3:
+        avg_dur = filtered_df['WorkDuration'].mean()
+        st.metric("⏳ متوسط فترة العمل (شهور)", f"{avg_dur:.1f}" if pd.notnull(avg_dur) else "غير متوفر")
     style_metric_cards()
 
-    # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tabs = st.tabs([
         "📌 أسباب الاستقالة",
         "👥 توزيع الجنس",
         "☁️ سحابة الكلمات",
         "📊 شريحة العمر",
         "💍 الحالة الاجتماعية",
-        "📅 شهر الميلاد"
+        "📅 شهر الميلاد",
+        "📈 معدل الدوران الشهري",
+        "🏢 الدوران حسب القسم والوحدة",
+        "📅 الموظفون الجدد مقابل المستقيلين",
+        "⏳ مدة العمل حسب القسم والجنس",
+        "🚩 أقسام عالية الدوران"
     ])
 
-    # Tab 1: Pie chart - Resignation reasons (NO reshaping)
-    with tab1:
+    # Tab 0: Resignation reasons pie
+    with tabs[0]:
         pie_df = filtered_df.copy()
         pie_df["ResignationReason"] = pie_df["ResignationReason"].fillna("غير محدد")
-        fig_pie = px.pie(
-            pie_df,
-            names="ResignationReason",
-            title="توزيع أسباب الاستقالة",
-            hole=0.45
-        )
-        fig_pie.update_layout(title={'x': 1, 'xanchor': 'right'}, legend=dict(x=1, xanchor='right'))
-        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig = px.pie(pie_df, names="ResignationReason", title="توزيع أسباب الاستقالة", hole=0.45)
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, legend=dict(x=1, xanchor='right'))
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Tab 2: Bar chart - Gender
-    with tab2:
-        gender_df = filtered_df.copy()
-        gender_df["Gender"] = gender_df["Gender"].fillna("غير محدد")
-        fig_bar = px.bar(
-            gender_df.groupby("Gender").size().reset_index(name="Count"),
-            x="Gender", y="Count", text="Count",
-            title="توزيع المستقيلين حسب الجنس"
-        )
-        fig_bar.update_layout(title={'x': 1, 'xanchor': 'right'})
-        st.plotly_chart(fig_bar, use_container_width=True)
+    # Tab 1: Gender distribution
+    with tabs[1]:
+        gender_counts = filtered_df['Gender'].fillna("غير محدد").value_counts().reset_index()
+        gender_counts.columns = ['Gender', 'Count']
+        fig = px.bar(gender_counts, x='Gender', y='Count', text='Count', title="توزيع المستقيلين حسب الجنس")
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Tab 3: Word cloud
-    with tab3:
+    # Tab 2: Word cloud reasons
+    with tabs[2]:
         st.markdown("### سحابة الكلمات لأسباب الاستقالة")
-        text_list = filtered_df['ResignationReason'].dropna().tolist()
-        word_freq = Counter(text_list)
-        if word_freq:
+        reasons_text = " ".join(filtered_df['ResignationReason'].dropna().tolist())
+        if reasons_text.strip():
             wordcloud = WordCloud(
                 font_path='arial',
                 background_color='white',
-                width=800, height=400,
+                width=800,
+                height=400,
                 colormap='viridis',
                 regexp=r"[\u0600-\u06FF]+"
-            ).generate_from_frequencies(word_freq)
+            ).generate(reasons_text)
             fig_wc, ax = plt.subplots(figsize=(10, 4))
             ax.imshow(wordcloud, interpolation='bilinear')
-            ax.axis("off")
+            ax.axis('off')
             st.pyplot(fig_wc)
         else:
             st.warning("لا توجد بيانات صالحة لتوليد سحابة كلمات.")
 
-    # Tab 4: Age group + Work duration
-    with tab4:
-        st.markdown("### عدد المستقيلين حسب شريحة العمر")
-        age_df = filtered_df.copy()
-        age_df["AgeGroup"] = age_df["AgeGroup"].fillna("غير محدد")
-        fig_age = px.bar(
-            age_df.groupby("AgeGroup").size().reset_index(name="Count"),
-            x="AgeGroup", y="Count", text="Count",
-            title="توزيع المستقيلين حسب شريحة العمر"
-        )
-        fig_age.update_layout(title={'x': 1, 'xanchor': 'right'})
-        st.plotly_chart(fig_age, use_container_width=True)
+    # Tab 3: Age group + WorkDuration
+    with tabs[3]:
+        age_counts = filtered_df['AgeGroup'].fillna("غير محدد").value_counts().reset_index()
+        age_counts.columns = ['AgeGroup', 'Count']
+        fig1 = px.bar(age_counts, x='AgeGroup', y='Count', text='Count', title="توزيع المستقيلين حسب شريحة العمر")
+        fig1.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig1, use_container_width=True)
 
-        st.markdown("### توزيع فترة العمل")
         if 'WorkDuration' in filtered_df.columns:
-            fig_hist = px.histogram(filtered_df, x="WorkDuration", nbins=20, title="توزيع فترة العمل")
-            fig_hist.update_layout(title={'x': 1, 'xanchor': 'right'})
-            st.plotly_chart(fig_hist, use_container_width=True)
+            fig2 = px.histogram(filtered_df, x='WorkDuration', nbins=20, title="توزيع فترة العمل")
+            fig2.update_layout(title={'x': 1, 'xanchor': 'right'})
+            st.plotly_chart(fig2, use_container_width=True)
 
-    # Tab 5: Pie chart - Marital Status
-    with tab5:
-        status_df = filtered_df.copy()
-        status_df["MaritalStatus"] = status_df["MaritalStatus"].fillna("غير محدد")
-        fig_status = px.pie(status_df, names="MaritalStatus", title="الحالة الاجتماعية", hole=0.4)
-        fig_status.update_layout(title={'x': 1, 'xanchor': 'right'})
-        st.plotly_chart(fig_status, use_container_width=True)
+    # Tab 4: Marital status pie
+    with tabs[4]:
+        ms_counts = filtered_df['MaritalStatus'].fillna("غير محدد").value_counts().reset_index()
+        ms_counts.columns = ['MaritalStatus', 'Count']
+        fig = px.pie(ms_counts, names='MaritalStatus', values='Count', title="الحالة الاجتماعية", hole=0.4)
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Tab 6: Birth month chart
-    with tab6:
-        st.markdown("### توزيع المستقيلين حسب شهر الميلاد")
+    # Tab 5: Birth month bar
+    with tabs[5]:
         month_map = {
             1: "يناير", 2: "فبراير", 3: "مارس", 4: "أبريل",
             5: "مايو", 6: "يونيو", 7: "يوليو", 8: "أغسطس",
             9: "سبتمبر", 10: "أكتوبر", 11: "نوفمبر", 12: "ديسمبر"
         }
-        birth_chart_df = filtered_df.copy()
-        birth_chart_df['BirthMonth'] = pd.to_numeric(birth_chart_df['BirthMonth'], errors='coerce')
-        birth_chart_df['BirthMonthName'] = birth_chart_df['BirthMonth'].map(month_map).fillna("غير معروف")
-        ordered_months = [month_map[m] for m in range(1, 13)]
-        grouped = birth_chart_df.groupby("BirthMonthName").size().reset_index(name="Count")
-        grouped["BirthMonthName"] = pd.Categorical(grouped["BirthMonthName"], categories=ordered_months, ordered=True)
-        grouped = grouped.sort_values("BirthMonthName")
-        fig_birth = px.bar(grouped, x="BirthMonthName", y="Count", text="Count", title="عدد المستقيلين حسب شهر الميلاد")
-        fig_birth.update_layout(title={'x': 1, 'xanchor': 'right'})
-        st.plotly_chart(fig_birth, use_container_width=True)
+        bm_df = filtered_df.copy()
+        bm_df['BirthMonth'] = pd.to_numeric(bm_df['BirthMonth'], errors='coerce')
+        bm_df['BirthMonthName'] = bm_df['BirthMonth'].map(month_map).fillna("غير معروف")
+        bm_ordered = [month_map[i] for i in range(1, 13)]
+        counts = bm_df['BirthMonthName'].value_counts().reindex(bm_ordered, fill_value=0).reset_index()
+        counts.columns = ['BirthMonthName', 'Count']
+        fig = px.bar(counts, x='BirthMonthName', y='Count', text='Count', title="عدد المستقيلين حسب شهر الميلاد")
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Tab 6: Monthly turnover trend (leavers count)
+    with tabs[6]:
+        monthly_leavers = filtered_df.dropna(subset=['DateOfLeaving'])
+        monthly_leavers['YearMonth'] = monthly_leavers['DateOfLeaving'].dt.to_period('M').dt.to_timestamp()
+        monthly_counts = monthly_leavers.groupby('YearMonth').size().reset_index(name='LeaversCount')
+        fig = px.line(monthly_counts, x='YearMonth', y='LeaversCount', markers=True, title='معدل الدوران الشهري')
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد المستقيلين')
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Tab 7: Turnover by Department and Unit
+    with tabs[7]:
+        turnover_dept = filtered_df.dropna(subset=['DateOfLeaving'])
+        dept_unit_counts = turnover_dept.groupby(['Department', 'Unit']).size().reset_index(name='LeaversCount')
+        fig = px.bar(dept_unit_counts, x='Department', y='LeaversCount', color='Unit', barmode='group',
+                     title='الدوران حسب القسم والوحدة')
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Tab 8: New hires vs leavers by month
+    with tabs[8]:
+        hires = filtered_df.dropna(subset=['DateOfStart']).copy()
+        hires['YearMonthStart'] = hires['DateOfStart'].dt.to_period('M').dt.to_timestamp()
+        leavers = filtered_df.dropna(subset=['DateOfLeaving']).copy()
+        leavers['YearMonthLeave'] = leavers['DateOfLeaving'].dt.to_period('M').dt.to_timestamp()
+        hires_counts = hires.groupby('YearMonthStart').size().reset_index(name='NewHires')
+        leavers_counts = leavers.groupby('YearMonthLeave').size().reset_index(name='Leavers')
+        hires_counts = hires_counts.rename(columns={'YearMonthStart':'YearMonth'})
+        leavers_counts = leavers_counts.rename(columns={'YearMonthLeave':'YearMonth'})
+        combined = pd.merge(hires_counts, leavers_counts, on='YearMonth', how='outer').fillna(0).sort_values('YearMonth')
+        fig = px.line(combined, x='YearMonth', y=['NewHires', 'Leavers'], markers=True, title='الموظفون الجدد مقابل المستقيلين')
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد الموظفين')
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Tab 9: Avg work duration by Dept and Gender
+    with tabs[9]:
+        if 'WorkDuration' in filtered_df.columns and filtered_df['WorkDuration'].notnull().any():
+            avg_duration = filtered_df.groupby(['Department', 'Gender'])['WorkDuration'].mean().reset_index()
+            fig = px.bar(avg_duration, x='Department', y='WorkDuration', color='Gender', barmode='group',
+                         title='متوسط فترة العمل حسب القسم والجنس', text=avg_duration['WorkDuration'].round(1))
+            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, yaxis_title='متوسط فترة العمل (شهور)')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("لا توجد بيانات كافية لفترة العمل.")
+
+    # Tab 10: High turnover departments alert
+    with tabs[10]:
+        turnover_threshold = st.slider("تحديد حد الدوران العالي", min_value=0, max_value=100, value=20)
+        turnover_rates = filtered_df.groupby('Department').apply(
+            lambda x: len(x.dropna(subset=['DateOfLeaving'])) / max(len(x),1) * 100
+        ).reset_index(name='TurnoverRate')
+        high_turnover = turnover_rates[turnover_rates['TurnoverRate'] >= turnover_threshold].sort_values('TurnoverRate', ascending=False)
+
+        st.markdown(f"### الأقسام التي لديها معدل دوران أعلى من {turnover_threshold}%")
+        if not high_turnover.empty:
+            st.dataframe(high_turnover.style.format({"TurnoverRate": "{:.2f}%"}))
+            fig = px.bar(high_turnover, x='Department', y='TurnoverRate', title='الأقسام ذات معدل الدوران العالي')
+            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, yaxis_title='معدل الدوران (%)')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("لا توجد أقسام تتجاوز حد معدل الدوران المحدد.")
 
 # Footer
 st.markdown("---")
-st.caption("🛠️ تم التصميم باستخدام Streamlit و Plotly و AgGrid - البيانات من ملف HR")
+st.caption("🛠️ تم التصميم باستخدام Streamlit و Plotly - البيانات من ملف HR")
