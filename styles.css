@@ -1,0 +1,200 @@
+<style>
+/* RTL text */
+.main, .css-1v0mbdj, .stMarkdown {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Page background and text */
+.reportview-container {
+    background-color: #e0e1dd;
+    color: #0d1b2a;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Sidebar background and text */
+.sidebar .sidebar-content {
+    background-color: #1b263b;
+    color: #e0e1dd;
+    padding: 1rem 1.5rem;
+}
+
+/* Buttons */
+.stButton>button {
+    background-color: #415a77 !important;
+    color: #e0e1dd !important;
+    border-radius: 10px !important;
+    font-weight: 700;
+    padding: 0.4rem 1rem;
+    box-shadow: 0 2px 8px rgba(65,90,119,0.4);
+    transition: background-color 0.3s ease;
+}
+.stButton>button:hover {
+    background-color: #778da9 !important;
+    color: #0d1b2a !important;
+}
+
+/* Metric cards */
+.metric-container > div {
+    background-color: #778da9 !important;
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    box-shadow: 0 4px 12px rgba(65,90,119,0.3);
+    color: #0d1b2a !important;
+    font-weight: 700;
+    text-align: right;
+    margin-bottom: 1rem;
+}
+
+/* Tabs */
+.stTabs [role="tablist"] {
+    flex-direction: row-reverse !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;  /* Reduced from 8px */
+    margin-right: -0.3rem !important;  /* Smaller negative margin */
+}
+
+.stTabs [role="tab"] {
+    background-color: #1b263b !important;
+    color: #e0e1dd !important;
+    padding: 0.5rem 1rem !important;  /* Tighter padding */
+    margin: 0 0.2rem 0.2rem 0 !important;  /* Reduced margins */
+    border-radius: 6px 6px 0 0 !important;
+    font-weight: 700;
+    min-width: 110px !important;  /* Slightly narrower */
+    text-align: center !important;
+    transition: all 0.2s ease;
+}
+
+.stTabs [role="tab"][aria-selected="true"] {
+    background-color: #415a77 !important;
+    box-shadow: 0 -2px 0 #778da9 inset !important;  /* Thinner indicator */
+}
+
+.stTabs [role="tab"]:hover:not([aria-selected="true"]) {
+    background-color: #2a3a51 !important;
+    transform: translateY(-1px);  /* Smaller hover movement */
+}
+/* Keep other existing CSS rules below */
+/* Containers */
+section[data-testid="stSidebar"] > div:nth-child(1),
+.block-container {
+    border-radius: 15px;
+    box-shadow: 0 6px 20px rgba(65,90,119,0.2);
+    padding: 1.5rem 2rem;
+    background-color: #e0e1dd;
+}
+
+/* Headers */
+h1, h2, h3, h4 {
+    font-weight: 900 !important;
+    color: #0d1b2a;
+    text-align: right !important;
+}
+
+/* Plotly charts */
+.js-plotly-plot .legend {
+    text-align: right !important;
+    right: 10px !important;
+    left: auto !important;
+}
+.xtick, .ytick, .axis-title {
+    text-anchor: start !important;
+}
+/* Reverse legend items (color on right) */
+.js-plotly-plot .legend .traces {
+    flex-direction: column-reverse !important;
+}
+
+.js-plotly-plot .legend .legendtext {
+    margin-right: 8px !important;
+    margin-left: 0 !important;
+}
+
+.js-plotly-plot .legend .legendsymbol {
+    order: 2 !important;
+    margin-left: 8px !important;
+}
+
+/* Tooltips */
+.tooltip {
+    background-color: #415a77 !important;
+    color: #e0e1dd !important;
+    font-weight: 600 !important;
+    direction: rtl !important;
+}
+
+/* === FILTERS === */
+/* Labels */
+.stSelectbox label,
+.stMultiselect label,
+.stSlider label {
+    text-align: right !important;
+    direction: rtl !important;
+    display: block;
+    padding-right: 12px !important;
+    margin-right: 8px !important;
+    font-weight: 700 !important;
+}
+
+/* Selectbox */
+div[data-baseweb="select"] > div {
+    background-color: #1b263b !important;
+    border: 1.8px solid #415a77 !important;
+    color: #e0e1dd !important;
+    font-weight: 600;
+    border-radius: 8px !important;
+    padding: 0.4rem 0.8rem;
+    direction: rtl !important;
+    min-height: 70px !important;
+    font-size: 20px !important;
+    padding: 10px 16px !important;
+}
+
+/* Dropdown options */
+div[data-baseweb="select"] li[role="option"] {
+    color: #0d1b2a !important;
+    font-weight: 500;
+    text-align: right !important;
+    padding-right: 24px !important;
+    font-size: 20px !important;
+    padding: 14px 18px !important;
+}
+
+/* Multiselect */
+div[data-baseweb="input"] > input {
+    text-align: right !important;
+    direction: rtl !important;
+}
+.css-1n543e5 {
+    flex-direction: row-reverse !important;
+    margin-left: 4px !important;
+    margin-right: 0 !important;
+}
+
+/* Dropdown arrow */
+div[data-baseweb="select"] > div::after {
+    left: 12px !important;
+    right: auto !important;
+}
+
+/* Scrollbars */
+div[data-baseweb="select"] ul[role="listbox"]::-webkit-scrollbar {
+    width: 8px;
+}
+div[data-baseweb="select"] ul[role="listbox"]::-webkit-scrollbar-thumb {
+    background-color: #415a77;
+    border-radius: 10px;
+}
+div[data-baseweb="select"] ul[role="listbox"]::-webkit-scrollbar-track {
+    background-color: #e0e1dd;
+    border-radius: 10px;
+}
+
+/* Add to styles.css */
+/* Word Cloud Container */
+[data-testid="stImage"] {
+    direction: rtl !important;
+    text-align: right !important;
+}
+</style>

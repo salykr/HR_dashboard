@@ -5,16 +5,25 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from collections import Counter
 from streamlit_extras.metric_cards import style_metric_cards
+import arabic_reshaper
+from bidi.algorithm import get_display
+from wordcloud import WordCloud, STOPWORDS
 
-# Set page config
+# Set page config FIRST as required by Streamlit
 st.set_page_config(page_title="لوحة استقالات الموظفين", layout="wide")
 
-# Global RTL styling
-st.markdown("""
-    <style>
-    .main, .css-1v0mbdj { direction: rtl; text-align: right; }
-    </style>
-""", unsafe_allow_html=True)
+# Load the external CSS file
+with open('styles.css', 'r', encoding='utf-8') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Define your color palette
+palette = {
+    "darkest": "#0d1b2a",
+    "dark": "#1b263b",
+    "medium": "#415a77",
+    "light": "#778da9",
+    "offwhite": "#e0e1dd"
+}
 
 # File and sheet name - adjust path as needed
 file_path = "Simple HR Data.xlsx"
@@ -57,7 +66,7 @@ df['DateOfLeaving'] = pd.to_datetime(df['DateOfLeaving'], errors='coerce')
 df['BirthMonth'] = df['BirthDate'].dt.month
 df['LeavingMonth'] = df['DateOfLeaving'].apply(lambda x: x.to_period('M').to_timestamp() if pd.notnull(x) else pd.NaT)
 
-# Layout
+# Layout with max-width wrapper
 content_col, filters_col = st.columns([3, 1])
 
 with filters_col:
@@ -84,19 +93,46 @@ filtered_df = filtered_df[
     filtered_df['MaritalStatus'].isin(marital_filter)
 ]
 
+# Define Plotly color sequence from your palette
+color_sequence = [palette['medium'], palette['light'], palette['dark'], palette['darkest'], palette['offwhite']]
+
 with content_col:
+    st.markdown("""<div style="max-width:1200px; margin:auto;">""", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:right;'>📊 لوحة تحليل استقالات الموظفين</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:right;'>أداة تساعد إدارة الموارد البشرية على تحليل وفهم اتجاهات ترك الموظفين للعمل.</p>", unsafe_allow_html=True)
 
     # KPIs
+    def custom_kpi(label: str, value: str):
+        st.markdown(f"""
+        <div style="
+            text-align: right;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background-color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            color: #0d1b2a;
+        ">
+            <div style="font-size: 1.2rem;">{label}</div>
+            <div style="font-size: 2.5rem; color: #415a77;">{value}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
     kpi1, kpi2, kpi3 = st.columns(3)
+
     with kpi1:
-        st.metric("📉 عدد المستقيلين", len(filtered_df))
+        custom_kpi("📉 عدد المستقيلين", str(len(filtered_df)))
+
     with kpi2:
-        st.metric("🏢 عدد الأقسام", filtered_df['Department'].nunique())
+        custom_kpi("🏢 عدد الأقسام", str(filtered_df['Department'].nunique()))
+
     with kpi3:
         avg_dur = filtered_df['WorkDuration'].mean()
-        st.metric("⏳ متوسط فترة العمل (شهور)", f"{avg_dur:.1f}" if pd.notnull(avg_dur) else "غير متوفر")
+        avg_str = f"{avg_dur:.1f}" if avg_dur else "غير متوفر"
+        custom_kpi("⏳ متوسط فترة العمل (شهور)", avg_str)
+
     style_metric_cards()
 
     tabs = st.tabs([
@@ -117,7 +153,13 @@ with content_col:
     with tabs[0]:
         pie_df = filtered_df.copy()
         pie_df["ResignationReason"] = pie_df["ResignationReason"].fillna("غير محدد")
-        fig = px.pie(pie_df, names="ResignationReason", title="توزيع أسباب الاستقالة", hole=0.45)
+        fig = px.pie(
+            pie_df,
+            names="ResignationReason",
+            title="توزيع أسباب الاستقالة",
+            hole=0.45,
+            color_discrete_sequence=color_sequence
+        )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, legend=dict(x=1, xanchor='right'))
         fig.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(fig, use_container_width=True)
@@ -126,49 +168,93 @@ with content_col:
     with tabs[1]:
         gender_counts = filtered_df['Gender'].fillna("غير محدد").value_counts().reset_index()
         gender_counts.columns = ['Gender', 'Count']
-        fig = px.bar(gender_counts, x='Gender', y='Count', text='Count', title="توزيع المستقيلين حسب الجنس")
-        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        fig = px.bar(
+            gender_counts,
+            x='Gender',
+            y='Count',
+            text='Count',
+            title="توزيع المستقيلين حسب الجنس",
+            color_discrete_sequence=color_sequence
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'الجنس', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
-    # Tab 2: Word cloud reasons
     with tabs[2]:
         st.markdown("### سحابة الكلمات لأسباب الاستقالة")
-        reasons_text = " ".join(filtered_df['ResignationReason'].dropna().tolist())
+
+        # Drop NaNs and ensure only non-empty strings are kept
+        reasons = [str(r).strip() for r in filtered_df['ResignationReason'].dropna() if str(r).strip()]
+        
+        # Reshape Arabic words correctly
+        reshaped_reasons = [
+            get_display(arabic_reshaper.reshape(reason))
+            for reason in reasons if any(char >= '\u0600' and char <= '\u06FF' for char in reason)
+        ]
+
+        reasons_text = " ".join(reshaped_reasons)
+
         if reasons_text.strip():
-            wordcloud = WordCloud(
-                font_path='arial',
-                background_color='white',
-                width=800,
-                height=400,
-                colormap='viridis',
-                regexp=r"[\u0600-\u06FF]+"
-            ).generate(reasons_text)
-            fig_wc, ax = plt.subplots(figsize=(10, 4))
-            ax.imshow(wordcloud, interpolation='bilinear')
-            ax.axis('off')
-            st.pyplot(fig_wc)
+            custom_stopwords = set(STOPWORDS).union({'من', 'في', 'على', 'أن', 'إلى', 'عن', 'و', 'وأن'})
+            try:
+                wordcloud = WordCloud(
+                    font_path='arial',
+                    background_color=palette['offwhite'],
+                    width=800,
+                    height=400,
+                    colormap='viridis',
+                    regexp=r"[\u0600-\u06FF]+",
+                    stopwords=custom_stopwords
+                ).generate(reasons_text)
+
+                fig_wc, ax = plt.subplots(figsize=(10, 4))
+                ax.imshow(wordcloud, interpolation='bilinear')
+                ax.axis('off')
+                st.pyplot(fig_wc)
+            except ValueError:
+                st.warning("لا توجد كلمات كافية لتوليد سحابة كلمات.")
         else:
             st.warning("لا توجد بيانات صالحة لتوليد سحابة كلمات.")
+
 
     # Tab 3: Age group + WorkDuration
     with tabs[3]:
         age_counts = filtered_df['AgeGroup'].fillna("غير محدد").value_counts().reset_index()
         age_counts.columns = ['AgeGroup', 'Count']
-        fig1 = px.bar(age_counts, x='AgeGroup', y='Count', text='Count', title="توزيع المستقيلين حسب شريحة العمر")
-        fig1.update_layout(title={'x': 1, 'xanchor': 'right'})
+        fig1 = px.bar(
+            age_counts,
+            x='AgeGroup',
+            y='Count',
+            text='Count',
+            title="توزيع المستقيلين حسب شريحة العمر",
+            color_discrete_sequence=color_sequence
+        )
+        fig1.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'شريحة العمر', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig1, use_container_width=True)
 
         if 'WorkDuration' in filtered_df.columns:
-            fig2 = px.histogram(filtered_df, x='WorkDuration', nbins=20, title="توزيع فترة العمل")
-            fig2.update_layout(title={'x': 1, 'xanchor': 'right'})
+            fig2 = px.histogram(
+                filtered_df,
+                x='WorkDuration',
+                nbins=20,
+                title="توزيع فترة العمل",
+                color_discrete_sequence=[palette['medium']]
+            )
+            fig2.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'فترة العمل (شهور)', yaxis_title='عدد المستقيلين')
             st.plotly_chart(fig2, use_container_width=True)
 
     # Tab 4: Marital status pie
     with tabs[4]:
         ms_counts = filtered_df['MaritalStatus'].fillna("غير محدد").value_counts().reset_index()
         ms_counts.columns = ['MaritalStatus', 'Count']
-        fig = px.pie(ms_counts, names='MaritalStatus', values='Count', title="الحالة الاجتماعية", hole=0.4)
-        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        fig = px.pie(
+            ms_counts,
+            names='MaritalStatus',
+            values='Count',
+            title="الحالة الاجتماعية",
+            hole=0.4,
+            color_discrete_sequence=color_sequence
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'الحالة الاجتماعية', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
     # Tab 5: Birth month bar
@@ -184,8 +270,15 @@ with content_col:
         bm_ordered = [month_map[i] for i in range(1, 13)]
         counts = bm_df['BirthMonthName'].value_counts().reindex(bm_ordered, fill_value=0).reset_index()
         counts.columns = ['BirthMonthName', 'Count']
-        fig = px.bar(counts, x='BirthMonthName', y='Count', text='Count', title="عدد المستقيلين حسب شهر الميلاد")
-        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        fig = px.bar(
+            counts,
+            x='BirthMonthName',
+            y='Count',
+            text='Count',
+            title="عدد المستقيلين حسب شهر الميلاد",
+            color_discrete_sequence=color_sequence
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'الشهر', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
     # Tab 6: Monthly turnover trend (leavers count)
@@ -193,7 +286,14 @@ with content_col:
         monthly_leavers = filtered_df.dropna(subset=['DateOfLeaving'])
         monthly_leavers['YearMonth'] = monthly_leavers['DateOfLeaving'].dt.to_period('M').dt.to_timestamp()
         monthly_counts = monthly_leavers.groupby('YearMonth').size().reset_index(name='LeaversCount')
-        fig = px.line(monthly_counts, x='YearMonth', y='LeaversCount', markers=True, title='معدل الدوران الشهري')
+        fig = px.line(
+            monthly_counts,
+            x='YearMonth',
+            y='LeaversCount',
+            markers=True,
+            title='معدل الدوران الشهري',
+            color_discrete_sequence=[palette['medium']]
+        )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
@@ -201,9 +301,16 @@ with content_col:
     with tabs[7]:
         turnover_dept = filtered_df.dropna(subset=['DateOfLeaving'])
         dept_unit_counts = turnover_dept.groupby(['Department', 'Unit']).size().reset_index(name='LeaversCount')
-        fig = px.bar(dept_unit_counts, x='Department', y='LeaversCount', color='Unit', barmode='group',
-                     title='الدوران حسب القسم والوحدة')
-        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        fig = px.bar(
+            dept_unit_counts,
+            x='Department',
+            y='LeaversCount',
+            color='Unit',
+            barmode='group',
+            title='الدوران حسب القسم والوحدة',
+            color_discrete_sequence=color_sequence
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'القسم', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
     # Tab 8: New hires vs leavers by month
@@ -217,7 +324,14 @@ with content_col:
         hires_counts = hires_counts.rename(columns={'YearMonthStart':'YearMonth'})
         leavers_counts = leavers_counts.rename(columns={'YearMonthLeave':'YearMonth'})
         combined = pd.merge(hires_counts, leavers_counts, on='YearMonth', how='outer').fillna(0).sort_values('YearMonth')
-        fig = px.line(combined, x='YearMonth', y=['NewHires', 'Leavers'], markers=True, title='الموظفون الجدد مقابل المستقيلين')
+        fig = px.line(
+            combined,
+            x='YearMonth',
+            y=['NewHires', 'Leavers'],
+            markers=True,
+            title='الموظفون الجدد مقابل المستقيلين',
+            color_discrete_sequence=[palette['medium'], palette['light']]
+        )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد الموظفين')
         st.plotly_chart(fig, use_container_width=True)
 
@@ -225,9 +339,17 @@ with content_col:
     with tabs[9]:
         if 'WorkDuration' in filtered_df.columns and filtered_df['WorkDuration'].notnull().any():
             avg_duration = filtered_df.groupby(['Department', 'Gender'])['WorkDuration'].mean().reset_index()
-            fig = px.bar(avg_duration, x='Department', y='WorkDuration', color='Gender', barmode='group',
-                         title='متوسط فترة العمل حسب القسم والجنس', text=avg_duration['WorkDuration'].round(1))
-            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, yaxis_title='متوسط فترة العمل (شهور)')
+            fig = px.bar(
+                avg_duration,
+                x='Department',
+                y='WorkDuration',
+                color='Gender',
+                barmode='group',
+                title='متوسط فترة العمل حسب القسم والجنس',
+                text=avg_duration['WorkDuration'].round(1),
+                color_discrete_sequence=color_sequence
+            )
+            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'القسم', yaxis_title='متوسط فترة العمل (شهور)')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("لا توجد بيانات كافية لفترة العمل.")
@@ -240,14 +362,22 @@ with content_col:
         ).reset_index(name='TurnoverRate')
         high_turnover = turnover_rates[turnover_rates['TurnoverRate'] >= turnover_threshold].sort_values('TurnoverRate', ascending=False)
 
-        st.markdown(f"### الأقسام التي لديها معدل دوران أعلى من {turnover_threshold}%")
+        st.markdown(f"###  الأقسام التي لديها معدل دوران أعلى من%{turnover_threshold}")
         if not high_turnover.empty:
             st.dataframe(high_turnover.style.format({"TurnoverRate": "{:.2f}%"}))
-            fig = px.bar(high_turnover, x='Department', y='TurnoverRate', title='الأقسام ذات معدل الدوران العالي')
-            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, yaxis_title='معدل الدوران (%)')
+            fig = px.bar(
+                high_turnover,
+                x='Department',
+                y='TurnoverRate',
+                title='الأقسام ذات معدل الدوران العالي',
+                color_discrete_sequence=[palette['dark']]
+            )
+            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='القسم',yaxis_title='معدل الدوران (%)')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("لا توجد أقسام تتجاوز حد معدل الدوران المحدد.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
