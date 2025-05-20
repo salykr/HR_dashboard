@@ -149,8 +149,10 @@ with content_col:
         "🏢 الدوران حسب القسم والوحدة",
         "📅 الموظفون الجدد مقابل المستقيلين",
         "⏳ مدة العمل حسب القسم والجنس",
-        "🚩 أقسام عالية الدوران"
+        "🚩 أقسام عالية الدوران",
+        "📊 تحليلات إضافية"  # ⬅️ Add this
     ])
+
 
     # Tab 0: Resignation reasons pie
     with tabs[0]:
@@ -381,6 +383,64 @@ with content_col:
             st.info("لا توجد أقسام تتجاوز حد معدل الدوران المحدد.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # Tab 11: Advanced Insights
+    with tabs[11]:
+        st.markdown("### ⏰ مدة العمل قبل الاستقالة")
+        fig = px.histogram(
+            filtered_df,
+            x="WorkDuration",
+            nbins=20,
+            title="مدة العمل قبل الاستقالة",
+            color_discrete_sequence=["#415a77"]
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title="فترة العمل", yaxis_title="عدد الموظفين")
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("### 📌 نسبة الاستقالات المبكرة (قبل 4.4 أشهر)")
+        early_leave_counts = filtered_df['LeaveBefore4_4'].fillna("كلا").value_counts().reset_index()
+        early_leave_counts.columns = ['LeaveBefore4_4', 'Count']
+        fig = px.pie(
+            early_leave_counts,
+            names="LeaveBefore4_4",
+            values="Count",
+            hole=0.4,
+            title="الترك قبل 4.4 أشهر",
+            color_discrete_sequence=["#1b263b", "#778da9"]
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'})
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("### 👔 عدد المستقيلين حسب المسمى الوظيفي")
+        job_counts = filtered_df['JobTitle'].value_counts().reset_index()
+        job_counts.columns = ['JobTitle', 'Count']
+        fig = px.bar(
+            job_counts,
+            x='JobTitle',
+            y='Count',
+            text='Count',
+            title="عدد المستقيلين حسب المسمى الوظيفي",
+            color_discrete_sequence=["#778da9"]
+        )
+        fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title="المسمى الوظيفي", yaxis_title="عدد")
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("### 📊 أسباب الاستقالة حسب شريحة العمر")
+        if 'ResignationReason' in filtered_df.columns and 'AgeGroup' in filtered_df.columns:
+            reason_age_df = filtered_df.groupby(['AgeGroup', 'ResignationReason']).size().reset_index(name='Count')
+            fig = px.bar(
+                reason_age_df,
+                x='AgeGroup',
+                y='Count',
+                color='ResignationReason',
+                barmode='stack',
+                text='Count',
+                title="أسباب الاستقالة حسب شريحة العمر",
+                color_discrete_sequence=["#415a77", "#778da9", "#1b263b"]
+            )
+            fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title="شريحة العمر", yaxis_title="عدد المستقيلين")
+            st.plotly_chart(fig, use_container_width=True)
+
 
 # Footer
 st.markdown("---")
