@@ -71,13 +71,16 @@ content_col, filters_col = st.columns([3, 1])
 
 with filters_col:
     st.markdown("<h4 style='text-align:right;'>🎛️ عوامل التصفية</h4>", unsafe_allow_html=True)
-    
-    gender_filter = st.selectbox("الجنس", options=["الكل"] + sorted(df['Gender'].dropna().unique().tolist()))
-    dept_filter = st.selectbox("القسم", options=["الكل"] + sorted(df['Department'].dropna().unique().tolist()))
-    unit_filter = st.selectbox("الإدارة", options=["الكل"] + sorted(df['Unit'].dropna().unique().tolist()) if 'Unit' in df.columns else ["الكل"])
-    reason_filter = st.multiselect("سبب الاستقالة", options=sorted(df['ResignationReason'].dropna().unique()), default=sorted(df['ResignationReason'].dropna().unique()))
-    age_group_filter = st.multiselect("شريحة العمر", options=sorted(df['AgeGroup'].dropna().unique()), default=sorted(df['AgeGroup'].dropna().unique()))
-    marital_filter = st.multiselect("الحالة الاجتماعية", options=sorted(df['MaritalStatus'].dropna().unique()), default=sorted(df['MaritalStatus'].dropna().unique()))
+
+    with st.container():
+        gender_filter = st.selectbox("الجنس", options=["الكل"] + sorted(df['Gender'].dropna().unique().tolist()))
+        dept_filter = st.selectbox("القسم", options=["الكل"] + sorted(df['Department'].dropna().unique().tolist()))
+        unit_filter = st.selectbox("الإدارة", options=["الكل"] + sorted(df['Unit'].dropna().unique().tolist()) if 'Unit' in df.columns else ["الكل"])
+
+        # These three will now be aligned to the right
+        reason_filter = st.multiselect("سبب الاستقالة", options=sorted(df['ResignationReason'].dropna().unique()), default=sorted(df['ResignationReason'].dropna().unique()))
+        age_group_filter = st.multiselect("شريحة العمر", options=sorted(df['AgeGroup'].dropna().unique()), default=sorted(df['AgeGroup'].dropna().unique()))
+        marital_filter = st.multiselect("الحالة الاجتماعية", options=sorted(df['MaritalStatus'].dropna().unique()), default=sorted(df['MaritalStatus'].dropna().unique()))
 
 # Apply filters
 filtered_df = df.copy()
@@ -156,7 +159,7 @@ with content_col:
         fig = px.pie(
             pie_df,
             names="ResignationReason",
-            title="توزيع أسباب الاستقالة",
+            title="توزيع أسباب الاستقالة    ",
             hole=0.45,
             color_discrete_sequence=color_sequence
         )
@@ -173,14 +176,14 @@ with content_col:
             x='Gender',
             y='Count',
             text='Count',
-            title="توزيع المستقيلين حسب الجنس",
+            title="توزيع المستقيلين حسب الجنس    ",
             color_discrete_sequence=color_sequence
         )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'الجنس', yaxis_title='عدد المستقيلين')
         st.plotly_chart(fig, use_container_width=True)
 
     with tabs[2]:
-        st.markdown("### سحابة الكلمات لأسباب الاستقالة")
+        st.markdown("### سحابة الكلمات لأسباب الاستقالة    ")
 
         # Drop NaNs and ensure only non-empty strings are kept
         reasons = [str(r).strip() for r in filtered_df['ResignationReason'].dropna() if str(r).strip()]
@@ -225,7 +228,7 @@ with content_col:
             x='AgeGroup',
             y='Count',
             text='Count',
-            title="توزيع المستقيلين حسب شريحة العمر",
+            title="توزيع المستقيلين حسب شريحة العمر    ",
             color_discrete_sequence=color_sequence
         )
         fig1.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'شريحة العمر', yaxis_title='عدد المستقيلين')
@@ -236,7 +239,7 @@ with content_col:
                 filtered_df,
                 x='WorkDuration',
                 nbins=20,
-                title="توزيع فترة العمل",
+                title="توزيع فترة العمل    ",
                 color_discrete_sequence=[palette['medium']]
             )
             fig2.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'فترة العمل (شهور)', yaxis_title='عدد المستقيلين')
@@ -250,7 +253,7 @@ with content_col:
             ms_counts,
             names='MaritalStatus',
             values='Count',
-            title="الحالة الاجتماعية",
+            title="الحالة الاجتماعية    ",
             hole=0.4,
             color_discrete_sequence=color_sequence
         )
@@ -275,7 +278,7 @@ with content_col:
             x='BirthMonthName',
             y='Count',
             text='Count',
-            title="عدد المستقيلين حسب شهر الميلاد",
+            title="عدد المستقيلين حسب شهر الميلاد    ",
             color_discrete_sequence=color_sequence
         )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'الشهر', yaxis_title='عدد المستقيلين')
@@ -291,7 +294,7 @@ with content_col:
             x='YearMonth',
             y='LeaversCount',
             markers=True,
-            title='معدل الدوران الشهري',
+            title='معدل الدوران الشهري    ',
             color_discrete_sequence=[palette['medium']]
         )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد المستقيلين')
@@ -307,7 +310,7 @@ with content_col:
             y='LeaversCount',
             color='Unit',
             barmode='group',
-            title='الدوران حسب القسم والوحدة',
+            title='الدوران حسب القسم والوحدة    ',
             color_discrete_sequence=color_sequence
         )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title = 'القسم', yaxis_title='عدد المستقيلين')
@@ -329,7 +332,7 @@ with content_col:
             x='YearMonth',
             y=['NewHires', 'Leavers'],
             markers=True,
-            title='الموظفون الجدد مقابل المستقيلين',
+            title='الموظفون الجدد مقابل المستقيلين    ',
             color_discrete_sequence=[palette['medium'], palette['light']]
         )
         fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='الشهر', yaxis_title='عدد الموظفين')
@@ -345,7 +348,7 @@ with content_col:
                 y='WorkDuration',
                 color='Gender',
                 barmode='group',
-                title='متوسط فترة العمل حسب القسم والجنس',
+                title='متوسط فترة العمل حسب القسم والجنس    ',
                 text=avg_duration['WorkDuration'].round(1),
                 color_discrete_sequence=color_sequence
             )
@@ -369,7 +372,7 @@ with content_col:
                 high_turnover,
                 x='Department',
                 y='TurnoverRate',
-                title='الأقسام ذات معدل الدوران العالي',
+                title='الأقسام ذات معدل الدوران العالي    ',
                 color_discrete_sequence=[palette['dark']]
             )
             fig.update_layout(title={'x': 1, 'xanchor': 'right'}, xaxis_title='القسم',yaxis_title='معدل الدوران (%)')

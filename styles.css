@@ -126,16 +126,13 @@ h1, h2, h3, h4 {
 
 /* === FILTERS === */
 /* Labels */
-.stSelectbox label,
-.stMultiselect label,
-.stSlider label {
-    text-align: right !important;
+/* Ensure all labels are RTL */
+label, .st-emotion-cache-1wmy9hl, .st-emotion-cache-1wmy9hl p {
     direction: rtl !important;
-    display: block;
-    padding-right: 12px !important;
-    margin-right: 8px !important;
-    font-weight: 700 !important;
+    text-align: right !important;
 }
+
+
 
 /* Selectbox */
 div[data-baseweb="select"] > div {
@@ -197,4 +194,7 @@ div[data-baseweb="select"] ul[role="listbox"]::-webkit-scrollbar-track {
     direction: rtl !important;
     text-align: right !important;
 }
+
+
+
 </style>
