@@ -1,4 +1,3 @@
-<style>
 /* RTL text */
 .main, .css-1v0mbdj, .stMarkdown {
     direction: rtl;
@@ -50,32 +49,32 @@
 .stTabs [role="tablist"] {
     flex-direction: row-reverse !important;
     flex-wrap: wrap !important;
-    gap: 4px !important;  /* Reduced from 8px */
-    margin-right: -0.3rem !important;  /* Smaller negative margin */
+    gap: 4px !important;
+    margin-right: -0.3rem !important;
 }
 
 .stTabs [role="tab"] {
     background-color: #1b263b !important;
     color: #e0e1dd !important;
-    padding: 0.5rem 1rem !important;  /* Tighter padding */
-    margin: 0 0.2rem 0.2rem 0 !important;  /* Reduced margins */
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.2rem 0.2rem 0 !important;
     border-radius: 6px 6px 0 0 !important;
     font-weight: 700;
-    min-width: 110px !important;  /* Slightly narrower */
+    min-width: 110px !important;
     text-align: center !important;
     transition: all 0.2s ease;
 }
 
 .stTabs [role="tab"][aria-selected="true"] {
     background-color: #415a77 !important;
-    box-shadow: 0 -2px 0 #778da9 inset !important;  /* Thinner indicator */
+    box-shadow: 0 -2px 0 #778da9 inset !important;
 }
 
 .stTabs [role="tab"]:hover:not([aria-selected="true"]) {
     background-color: #2a3a51 !important;
-    transform: translateY(-1px);  /* Smaller hover movement */
+    transform: translateY(-1px);
 }
-/* Keep other existing CSS rules below */
+
 /* Containers */
 section[data-testid="stSidebar"] > div:nth-child(1),
 .block-container {
@@ -101,7 +100,7 @@ h1, h2, h3, h4 {
 .xtick, .ytick, .axis-title {
     text-anchor: start !important;
 }
-/* Reverse legend items (color on right) */
+
 .js-plotly-plot .legend .traces {
     flex-direction: column-reverse !important;
 }
@@ -126,13 +125,10 @@ h1, h2, h3, h4 {
 
 /* === FILTERS === */
 /* Labels */
-/* Ensure all labels are RTL */
 label, .st-emotion-cache-1wmy9hl, .st-emotion-cache-1wmy9hl p {
     direction: rtl !important;
     text-align: right !important;
 }
-
-
 
 /* Selectbox */
 div[data-baseweb="select"] > div {
@@ -188,13 +184,8 @@ div[data-baseweb="select"] ul[role="listbox"]::-webkit-scrollbar-track {
     border-radius: 10px;
 }
 
-/* Add to styles.css */
 /* Word Cloud Container */
 [data-testid="stImage"] {
     direction: rtl !important;
     text-align: right !important;
 }
-
-
-
-</style>
